@@ -1,0 +1,259 @@
+---
+title: "Check convergence of the fitted model"
+author: "Tzu-Yao Lin"
+date: last-modified
+execute:
+  eval: true
+  warning: false
+  cache: false
+params:
+  model_name: "default"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    self-contained: true
+    code-fold: false
+    code-tools: true
+---
+
+# `{r} params$model_name` results
+
+# Setup
+
+First, we need to load the necessary packages.
+
+```{r}
+#| label: load-packages
+
+library(tidyverse)
+theme_set(theme_bw(base_size = 14))
+library(cmdstanr)
+register_knitr_engine(override = FALSE)
+library(posterior)
+library(bayesplot)
+color_scheme_set("mix-teal-pink")
+```
+
+# Load fitted model and the summary
+
+```{r}
+#| label: load-data
+
+model_name <- params$model_name
+
+include_RId <- str_detect(model_name, "RId")
+include_ARd <- str_detect(model_name, "ARd")
+include_HEd <- str_detect(model_name, "HEd")
+include_ARm <- str_detect(model_name, "ARm")
+include_HEm <- str_detect(model_name, "HEm")
+```
+
+```{r}
+#| label: load-fitted-model
+ 
+mod_fit <- as_cmdstan_fit(list.files(str_glue("stan/draws/{model_name}"), 
+                                     full.names = TRUE))
+mod_summary <- read_csv(str_glue("stan/summary/{model_name}_summary.csv"))
+```
+
+Sampling information
+
+```{r}
+#| label: mod-sampling-info
+ 
+mod_fit$metadata()[c("iter_warmup", "iter_sampling", "thin")]
+```
+
+# MCMC convergency check
+
+## Rhat and n_eff
+
+Here I list the parameters of interest to check Rhat and n_eff.
+
+```{r}
+#| label: check-rhat-neff
+
+mod_summary |> 
+  filter(variable %in% c("lp__", "beta") | 
+         str_starts(variable, "sigma_") |
+         str_starts(variable, "phi_") |
+         str_starts(variable, "eta_") |
+         str_starts(variable, "tau_")) |> 
+rmarkdown::paged_table()
+```
+
+## Trace plots
+
+```{r}
+#| label: draws
+ 
+mod_draws <- mod_fit$draws(format = "df") |>thin_draws(5) 
+
+selected_subj <- c(5, 32, 38, 47, 58, 66, 71, 99, 101)
+```
+
+### Variance
+
+
+```{r}
+#| label: trace-variance
+mcmc_trace(mod_draws, pars = vars(starts_with("sigma_")))
+```
+
+### Autoregressive parameters
+
+```{r}
+#| label: trace-phi
+
+if (include_ARd || include_ARm) {
+  mcmc_trace(mod_draws, pars = vars(starts_with("phi")))
+}
+```
+
+```{r}
+#| label: trace-tau
+if (include_ARd || include_ARm) {
+  mcmc_trace(mod_draws, pars = vars(starts_with("tau")))
+}
+```
+
+```{r}
+#| label: pairs-sd
+
+mod_draws_matrix <- as_draws_matrix(mod_draws)
+pars_names <- colnames(mod_draws_matrix)
+
+if (include_RId && include_HEd) {
+  sigma_d_bar <- rowMeans(mod_draws_matrix[, str_detect(pars_names, "sigma_d")])
+  mod_draws <- mod_draws |> add_column(sigma_d_bar = sigma_d_bar)
+}
+if (include_HEm) {
+  sigma_epsilon_bar <- rowMeans(mod_draws_matrix[, str_detect(pars_names, "sigma_epsilon")])
+  mod_draws <- mod_draws |> add_column(sigma_epsilon_bar = sigma_epsilon_bar)
+}
+
+mcmc_pairs(mod_draws, 
+           pars = vars(starts_with("phi"), 
+                       starts_with("tau"), 
+                       "sigma_s", 
+                       matches("sigma_d$|sigma_d_bar$"),
+                       matches("sigma_epsilon$|sigma_epsilon_bar$")))
+
+```
+
+
+### Fixed and random effects
+
+```{r}
+#| label: trace-beta
+ 
+mcmc_trace(mod_draws, pars = "beta")
+```
+
+```{r}
+#| label: trace-s
+ 
+mcmc_trace(mod_draws, pars = str_glue("s[{selected_subj}]"))
+```
+
+```{r}
+#| label: trace-d1 
+ 
+if (include_RId) {
+  mcmc_trace(mod_draws, pars = str_glue("d[32,{days}]", days = 1:9))
+}
+
+```
+
+```{r}
+#| label: trace-d2
+ 
+if (include_RId) {
+  mcmc_trace(mod_draws, pars = str_glue("d[89,{days}]", days = 1:9))
+}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Fitting results
+
+```{r}
+#| label: lmm-post-random-effect-sd
+#| eval: false 
+mcmc_intervals(lmm_draws, regex_pars = "psi_[bsd]")
+```
+
+```{r}
+#| label: lmm-post-phi
+#| eval: false 
+if (include_ARd || include_ARm) { 
+  mcmc_intervals(lmm_draws, regex_pars = pars_phi)
+}
+```
+```{r}
+#| label: lmm-post-tau
+#| eval: false 
+if (include_ARd || include_ARm) {
+  mcmc_intervals(lmm_draws, regex_pars = pars_tau)
+}
+```
+
+```{r}
+#| label: lmm-post-Hd
+#| eval: false 
+# mcmc_intervals(lmm_draws, regex_pars = "psi_d") 
+```
+
+```{r}
+#| label: lmm-post-error
+#| eval: false 
+mcmc_intervals(lmm_draws, regex_pars = "sigma_epsilon")
+```
+
+```{r}
+#| label: lmm-post-rel
+#| eval: false
+mcmc_intervals(lmm_draws, regex_pars = "rel_T")
+```
+
+```{r}
+#| label: fig-lmm-fit
+#| fig-cap: The fitted results for Model 1 
+#| eval: false 
+
+.y_hat_summary_lmm <- lmm_fit$summary("y_hat", mean, median, quantile2) 
+
+y_hat_summary_lmm <- .y_hat_summary_lmm |> 
+  mutate(Indices = str_extract_all(variable, "\\d+"), 
+         Participant = map_dbl(Indices, \(x) as.integer(x[1])),
+         Day = map_dbl(Indices, \(x) as.integer(x[2])),
+         Moment = map_dbl(Indices, \(x) as.integer(x[3])))
+
+data_predict_lmm <- data |> 
+  left_join(y_hat_summary_lmm)
+
+data_predict_lmm |> 
+  filter(Participant %in% selected_subj) |> 
+  mutate(Date_time = as_datetime(days(Day) + Time)) |> 
+  ggplot(aes(x = Date_time, y = Neg_aff)) + 
+  geom_line() + geom_point() +
+  geom_line(aes(y = mean), linetype = "dashed") +
+  geom_ribbon(aes(ymin = q5, ymax = q95), alpha = 0.25) +
+  # coord_cartesian(ylim = c(-20, 100)) +
+  scale_x_datetime(breaks = as_datetime(1:9 * 86400),
+                   labels = paste("Day", 1:9)) +
+  facet_grid(Participant ~ ., space = "free_y") 
+```

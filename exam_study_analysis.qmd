@@ -1,0 +1,561 @@
+---
+title: "Exam Study Analysis by Three-Level Mixed Effect Model with Two Autoregressive Processes"
+author: "Tzu-Yao Lin"
+date: last-modified
+execute:
+  eval: true
+  warning: false
+  cache: false
+params:
+  model_name: "default"
+format: 
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    self-contained: true
+    code-fold: false
+    code-tools: true
+---
+
+# Setup
+
+First, we need to load the necessary packages.
+
+```{r}
+#| label: load-packages
+
+library(tidyverse)
+theme_set(theme_bw(base_size = 14))
+library(lubridate)
+library(tsibble)
+library(cmdstanr)
+register_knitr_engine(override = FALSE)
+library(jagsUI)
+library(posterior)
+library(bayesplot)
+color_scheme_set("blue")
+# devtools::install_github('crsh/bridgesampling@cmdstanr-crsh', force = T)
+library(bridgesampling)
+```
+
+Load the Exam Study data from their original csv file. There is some misalignment of the moment indices due to missing values. I adjusted it by its sampling time point. Luckily, in this experiment, everyone has the same sampling schedule.
+
+```{r}
+#| label: load-data
+#| eval: false 
+
+rawdata <- read_csv("data/ER exam study - data 28-6-17- 101 PP.csv")
+
+duplicate_point <- which(rawdata$ScheduledTime == lag(rawdata$ScheduledTime))
+
+.data <- rawdata |> 
+  slice(-duplicate_point) |> 
+  mutate(Participant = cumsum(Participant != lag(Participant, default = 0)),
+         Scheduled_time = ScheduledTime, 
+         Year = beepyear, 
+         Month = beepmonth,
+         Date = beepday,
+         WDay = wday(Scheduled_time, label = TRUE),
+         Time = seconds_to_period(beeptime),
+         Beep_index = as.integer(beepnum),
+         Get_grade = (exam_beepnum >= 0),
+         Missing = !beepdone, 
+         Neg_aff = negaff,
+         Pos_aff = posaff,
+         Neg_aff_comp = negaff_composite, 
+         Pos_aff_comp = posaff_composite,
+         .keep = "none") |> 
+  group_by(Participant) |> 
+  mutate(Day = cumsum(Date != lag(Date, default = 0))) |> 
+  group_by(Participant, Day) |> 
+  mutate(Moment = 1:n(), 
+         n_in_day = n(), 
+         n_is_10 = n_in_day == 10) |> 
+  ungroup()
+
+# Adjest the misalignment of the moment number and deal with the missing data
+start_time <- hours(10) |> period_to_seconds()
+end_time <- hours(22) |> period_to_seconds()
+cut_points <- seq(start_time, end_time, length.out = 11)
+
+data <- .data |> 
+  mutate(Moment = pmap_int(list(Moment, n_is_10, Time), 
+                              \(Moment, n_is_10, Time){
+                                if (n_is_10) {
+                                  Moment
+                                } else {
+                                  as.integer(cut(period_to_seconds(Time), 
+                                                 breaks = cut_points, 
+                                                 labels = 1:10))
+                                }
+                              })) |> 
+  right_join(expand.grid(Participant = 1:101, 
+                         Day = 1:9,
+                         Moment = 1:10)) |>
+  arrange(Participant, Day, Moment) |> 
+  mutate(Missing = is.na(Neg_aff)) |> 
+  group_by(Participant) |> 
+  fill(Get_grade, .direction = "downup") |> 
+  ungroup()
+
+write_rds(data, "data/exam_data_preprocessed.rds")
+```
+
+```{r}
+#| label: load-data-preprocessed
+
+data <- read_rds("data/exam_data_preprocessed.rds")
+rmarkdown::paged_table(data)
+```
+
+There are two types of negative (or positive) affect measurements in the data:
+
+- **Neg_aff**: The negative affect scores are reported directly from the participants at each beep
+- **Neg_aff_comp**: The scores are the average of the 6 negative affect items, including sad, angry, disappointed, ashamed, anxious, and stressed.
+
+Note that, in my previous analysis, I used the **Neg_aff_comp** as the outcome variable. But here I will use the **Neg_aff** instead, because it is more concise for our model, which is based on the single measurement rather than the composite score.
+
+
+Give some plot to show their difference
+
+```{r}
+
+```
+
+
+
+
+# Model
+
+The general model is 
+
+RI_s + RI_d (Hetero) + AR_s + Error (Hetero)
+
+?RI_s + RI_d (Homo) + AR_s + Error (Homo)
+
+# Reliability
+
+
+
+```{r}
+#| label: rel-fun
+
+R_T <- function() {
+
+}
+
+R_Lambda <- function() {
+
+}
+
+rho_
+
+```
+
+# Fitting
+
+::: {.panel-tabset}
+
+```{r}
+N <- 101
+D <- 9
+M <- 10
+model_name <- "exam_3llmm_RIsRIdHOdERmHOm"
+seed <- 20250814
+```
+
+
+## Stan
+
+
+```{cmdstan}
+#| label: stan-exam_3llmm_RIsRIdHEdARmERmHEm
+#| output.var: lmm-full
+#| eval: false
+#| filename: stan/exam_3llmm_RIsRIdHEdARmERmHEm.stan
+
+{{< include stan/exam_3llmm_RIsRIdHEdARmERmHEm.stan >}}
+
+```
+
+```{r}
+#| label: stan-setting
+
+output_dir_stan = str_glue("stan/draws/{model_name}")
+
+unlink(output_dir_stan, recursive = TRUE)
+dir.create(output_dir_stan, recursive = TRUE)
+
+
+obs_index <- which(!data$Missing)
+
+data_stan <- list(
+  N = 101, D = 9, M = 10, 
+  N_obs = length(obs_index),
+  ii_obs = data$Participant[obs_index], 
+  jj_obs = data$Day[obs_index],
+  kk_obs = data$Moment[obs_index], 
+  y_obs = data$Neg_aff[obs_index]
+)
+
+mod_stan <- cmdstan_model(str_glue("stan/{model_name}.stan"), force_recompile = TRUE)
+```
+
+
+
+```{r}
+#| label: stan-fit
+#| eval: false
+#  
+mod_fit_stan <- mod_stan$sample(
+  data = data_stan, 
+  chains = 4, 
+  parallel_chains = 4,
+  output_dir = output_dir_stan, 
+  iter_warmup = 4000, 
+  iter_sampling = 4000,
+  thin = 1, 
+  seed = seed, 
+  refresh = 1000, 
+  show_messages = TRUE
+)
+
+
+# lmm_summary <- lmm_fit$summary()
+
+# write_csv(lmm_summary, str_glue("stan/summary/{file_name}_summary.csv"))
+```
+
+```{r}
+mod_fit_stan <- as_cmdstan_fit(list.files(str_glue("stan/draws/{model_name}"), 
+                                           pattern = "csv", full.names = TRUE))
+```
+
+```{r}
+mod_bs <- bridge_sampler(mod_fit_stan)
+```
+
+
+```{r}
+
+my_bridge_sampler <- function(fit, ...) {
+  
+  usamples <- fit$unconstrain_draws(format = "matrix")
+  log_posterior_stan <- function(pars, ...) {
+    fit$log_prob(unconstrained_variables = pars)
+  }
+  param_names <- colnames(usamples)
+  ub <- setNames(rep(Inf, length(param_names)), param_names)
+  lb <- setNames(rep(-Inf, length(param_names)), param_names)
+  # sigma_cols <- param_names[startsWith(param_names, "sigma")]
+  # lb[sigma_cols] <- 0
+
+  bs <- bridge_sampler(
+    samples = usamples,
+    log_posterior = log_posterior_stan,
+    lb = lb,
+    ub = ub,
+    silent = TRUE
+  )
+  return(bs)
+}
+
+mod_bs <- my_bridge_sampler(mod_fit_stan)
+
+mod_bs
+
+```
+
+[bound]
+Bridge sampling estimate of the log marginal likelihood: -34967.89
+Estimate obtained in 1001 iteration(s) via method "normal".
+
+[unbound]
+Bridge sampling estimate of the log marginal likelihood: -34966.34
+Estimate obtained in 1001 iteration(s) via method "normal".
+Bridge sampling estimate of the log marginal likelihood: -34966.82
+Estimate obtained in 1001 iteration(s) via method "normal".
+
+
+Rversion
+```{r}
+
+# 1. 提取後驗樣本為矩陣 (不包含 lp__)
+posterior_samples_no_lp <- mod_fit_stan$draws(format = "df") |>
+  dplyr::select(-.chain, -.iteration, -.draw, -lp__)
+
+# 2. 在 R 中手動建立 log_prob 函數
+# 這需要將您的 Stan 模型翻譯成 R
+log_posterior_R <- function(pars, ...) {
+  
+  # 將傳入的無名向量 pars 賦予正確的名稱
+  names(pars) <- colnames(posterior_samples_no_lp)
+  
+  # 提取單一參數
+  beta <- pars[["beta"]]
+  sigma_s <- pars[["sigma_s"]]
+  sigma_d <- pars[["sigma_d"]]
+  sigma_epsilon <- pars[["sigma_epsilon"]]
+  
+  # 提取向量/陣列參數
+  s <- pars[startsWith(names(pars), "s[")]
+  d_vec <- pars[startsWith(names(pars), "d[")]
+  # 將 d 從向量轉回矩陣
+  d <- matrix(d_vec, nrow = 101, ncol = 9, byrow = FALSE)
+  
+  # --- 開始計算對數機率 ---
+  # 與您的 Stan 模型完全對應
+  
+  # Priors
+  log_prob <- dnorm(beta, 50, 100, log = TRUE) +
+              dnorm(sigma_s, 0, 2.5, log = TRUE) + # 假設您接受了 half-normal
+              dnorm(sigma_d, 0, 2.5, log = TRUE) +
+              dnorm(sigma_epsilon, 0, 2.5, log = TRUE)
+  
+  # Level 3
+  log_prob <- log_prob + sum(dnorm(s, 0, sigma_s, log = TRUE))
+  
+  # Level 2
+  log_prob <- log_prob + sum(dnorm(d, 0, sigma_d, log = TRUE))
+  
+  # Level 1 (Likelihood)
+  mu_obs <- beta + s[data_stan$ii_obs] + d[cbind(data_stan$ii_obs, data_stan$jj_obs)]
+  log_prob <- log_prob + sum(dnorm(data_stan$y_obs, mu_obs, sigma_epsilon, log = TRUE))
+  
+  return(log_prob)
+}
+
+# 3. 定義邊界 (這次的名稱來自 no_lp 的樣本)
+param_names <- colnames(posterior_samples_no_lp)
+lb <- setNames(rep(-Inf, length(param_names)), param_names)
+ub <- setNames(rep(Inf, length(param_names)), param_names)
+sigma_cols <- param_names[startsWith(param_names, "sigma_")]
+lb[sigma_cols] <- 0
+
+# 4. 執行 bridge_sampler
+mod_bs_final <- bridge_sampler(
+  samples = as.matrix(posterior_samples_no_lp),
+  log_posterior = log_posterior_R,
+  lb = lb,
+  ub = ub,
+  silent = FALSE
+)
+
+print("--- bridge_sampler 執行成功！ ---")
+print(mod_bs_final)
+```
+
+Bridge sampling estimate of the log marginal likelihood: -34994.45
+Estimate obtained in 1001 iteration(s) via method "normal".
+
+ -34995.09
+
+
+
+
+
+
+
+
+Rstan
+
+```{r}
+library(rstan)
+
+a <- stan(
+  file = "stan/exam_3llmm_RIsRIdHOdERmHOm.stan",  # 您的 Stan 檔案路徑
+  data = data_stan,          # 準備好的數據
+  chains = 4,                 # MCMC 鏈的數量
+  warmup = 4000,              # 預熱迭代次數
+  iter = 8000,                # 總迭代次數 (warmup + sampling)
+  cores = 4,                  # 使用的核心數
+  seed = 20250814             # 設定隨機種子以確保結果可重現
+)
+
+```
+
+```{r}
+debug(bridge_sampler)
+b <- bridge_sampler(a, silent = TRUE)
+b
+```
+
+Bridge sampling estimate of the log marginal likelihood: -34994.91 -35001.79
+Estimate obtained in 55 iteration(s) via method "normal".
+
+## JAGS
+
+```{jags}
+#| label: jags-exam_3llmm_RIsRIdHEdARmERmHEm
+#| output.var: lmm-full
+#| eval: false
+#| filename: jags/exam_3llmm_RIsRIdHEdARmERmHEm.stan
+
+{{< include jags/exam_3llmm_RIsRIdHEdARmERmHEm.stan >}}
+
+```
+```{r}
+#| label: jags-setting
+file_name_jags <- str_glue("jags/{model_name}.jag")
+output_dir_jags = str_glue("jags/draws/{model_name}")
+
+unlink(output_dir_jags, recursive = TRUE)
+dir.create(output_dir_jags, recursive = TRUE)
+
+y <- array(NA, dim = c(N, D, M))
+
+for (i in 1:N) {
+  for (j in 1:D) {
+    for (k in 1:M) {
+      y[i, j, k] <- data$Neg_aff[data$Participant == i & data$Day == j & data$Moment == k]
+    }
+  }
+}
+
+data_jags <- list(
+  N = N, 
+  D = D, 
+  M = M,
+  y = y
+) 
+
+pars_jags <- c("beta", "s", "d", 
+               "sigma_s", "sigma_d", "sigma_epsilon",
+               "eta_m", "phi_m", "tau2_m")
+
+
+
+```
+
+```{r}
+#| label: jags-fit
+
+mod_jags <- jags(
+  data = data_jags,
+  #inits = inits_func1,
+  parameters.to.save = pars_jags,
+  model.file = file_name_jags,
+  n.chains = 4,
+  n.adapt = 1000,
+  n.burnin = 6000,
+  n.iter = 8000,
+  n.thin = 15,
+  parallel = TRUE
+)
+
+write_rds(lmm_1, file = "jags/exam_3l-lmm_ZRIdHdARmHm_jags.rds")
+```
+
+:::
+
+# Model comparison?
+
+
+
+
+```{r}
+file <- file.path(cmdstan_path(), "examples", "bernoulli", "bernoulli.stan")
+mod <- cmdstan_model(file, force_recompile = T)
+
+d <- list(N = 10, y = c(0,1,0,0,0,0,0,0,0,1))
+
+fit <- mod$sample(
+  data = d,
+  seed = 123,
+  chains = 4,
+  parallel_chains = 4,
+  refresh = 500
+)
+
+
+```
+
+Bridge sampling estimate of the log marginal likelihood: -6.20567
+Estimate obtained in 4 iteration(s) via method "normal".
+
+```{r}
+# Log marginal likelihood
+lml <- bridge_sampler(fit)
+lml
+lml2 <- my_bridge_sampler(fit)
+lml2
+```
+
+Bridge sampling estimate of the log marginal likelihood: -6.20307
+Estimate obtained in 5 iteration(s) via method "normal".
+Bridge sampling estimate of the log marginal likelihood: -6.20299
+Estimate obtained in 5 iteration(s) via method "normal".
+
+
+```{r}
+library(rstan)
+
+
+fit_rstan <- stan(
+  file = file,  # 您的 Stan 檔案路徑
+  data = d,          # 準備好的數據
+  chains = 4,                 # MCMC 鏈的數量
+  warmup = 500,              # 預熱迭代次數
+  iter = 1500,                # 總迭代次數 (warmup + sampling)
+  cores = 4,                  # 使用的核心數
+  seed = 123             # 設定隨機種子以確保結果可重現
+)
+```
+
+```{r}
+lml_rstan <- bridge_sampler(fit_rstan, silent = TRUE)
+lml_rstan
+lml2_rstan <- my_bridge_sampler2(fit_rstan, silent = TRUE)
+lml2_rstan
+```
+
+Warning message:
+effective sample size cannot be calculated, has been replaced by number of samples. 
+Bridge sampling estimate of the log marginal likelihood: -6.20464
+Estimate obtained in 5 iteration(s) via method "normal".
+
+
+```{r}
+
+my_bridge_sampler2 <- function(fit, ...) {
+
+  ex <- rstan::extract(fit_rstan, permuted = FALSE)
+  skeleton <- bridgesampling:::.create_skeleton(fit_rstan@sim$pars_oi,
+                               fit_rstan@par_dims[fit_rstan@sim$pars_oi])
+  upars <- apply(ex, 1:2, FUN = function(theta) {
+    rstan::unconstrain_pars(fit_rstan, bridgesampling:::.rstan_relist(theta, skeleton))
+  })
+  if (length(dim(upars)) == 2) { # for one parameter models
+    dim(upars) <- c(1, dim(upars))
+  }
+  
+  # usamples <- as.matrix(fit)
+  # usamples <- usamples[, colnames(usamples) != "lp__", drop = FALSE]
+  log_posterior_stan <- function(pars, ...) {
+    rstan::log_prob(fit, upars = pars)
+  }
+  param_names <- colnames(usamples)
+  ub <- 1
+  lb <- 0
+  #ub <- setNames(rep(Inf, length(param_names)), param_names)
+  #lb <- setNames(rep(-Inf, length(param_names)), param_names)
+  # sigma_cols <- param_names[startsWith(param_names, "sigma")]
+  # lb[sigma_cols] <- 0
+
+  bs <- bridge_sampler(
+    samples = usamples,
+    log_posterior = log_posterior_stan,
+    lb = lb,
+    ub = ub,
+    silent = TRUE
+  )
+  return(bs)
+}
+```
+
+# Results
+
+# Discussion
+
+
