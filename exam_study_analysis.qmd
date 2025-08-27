@@ -124,6 +124,20 @@ Give some plot to show their difference
 ```
 
 
+```{r}
+ave_neg_by_day <- data |> 
+  group_by(Participant, Day) |> 
+  summarise(ave_neg_aff = mean(Neg_aff))
+
+
+```
+
+
+
+```{r}
+
+```
+
 
 
 # Model

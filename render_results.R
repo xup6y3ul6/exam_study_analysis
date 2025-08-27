@@ -2,11 +2,12 @@ library(quarto)
 library(tidyverse)
 
 model_names <- list.dirs("stan/draws", full.names = FALSE, recursive = FALSE) |> 
-  str_subset("nonc")
+  str_subset("nonc_m")
 model_names
 
 for (m in model_names) {
   tryCatch ({
+    print(str_glue("Started: {m}"))
     file_name <- str_glue("{m}_result.html")
     quarto::quarto_render(
       input = "check_convergence.qmd",

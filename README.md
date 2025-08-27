@@ -1,7 +1,10 @@
 # The Reliaiblity Analysis for the Exam Study
 
+Please check the results from this [website](https://xup6y3ul6.github.io/exam_study_analysis/).
+
 This repository contains the data, code, and analysis procedure for the reliability analysis of the exam study. The results are presented in the our draft paper: "Reliability for three level linear mixed-effect models".
 
+> Note that the negative affect scores used in this analysis is based on the students' self-reported ratings (one item only). In my previous anlaysis (see [exam_analysis](https://github.com/xup6y3ul6/exam_analysis)), I used the mean scores which average of six items (afraid, nervous, jittery, irritable, ashamed, upset).
 
 ## Project structure
 
@@ -44,9 +47,9 @@ model name / file name pattern: exam_[model]_[spcification]<.[extension]>
 |-----|---|---|---|---|---|---|---|---|---|----------------------------------|
 |1    | + | + | + | - | - | - | + | + | - | [exam_3llmm_RIsRIdHOdERmHOm](results/exam_3llmm_RIsRIdHOdERmHOm_nonc_result.html)             |
 |2    | + | + | - | + | - | - | + | - | + | [exam_3llmm_RIsRIdHEdERmHEm](results/exam_3llmm_RIsRIdHEdERmHEm_nonc_result.html)             |
-| 2+3 | + | + | - | + | - | + | + | - | + | [exam_3llmm_RIsRIdHEdARmERmHEm](results/exam_3llmm_RIsRIdHEdARmERmHEm_nonc_result.html)       |
+| 2+3 | + | + | - | + | - | + | + | - | + | exam_3llmm_RIsRIdHEdARmERmHEm (not finish)       |
 |3    | + | + | - | - | - | + | + | + | - | [exam_3llmm_RIsRIdHOdARmERmHOm](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_result.html)       |
-| 3+4 | + | + | - | - | + | + | + | + | - | [exam_3llmm_RIsRIdHOdARdARmERmHOm](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_result.html) |
+| 3+4 | + | + | - | - | + | + | + | + | - | exam_3llmm_RIsRIdHOdARdARmERmHOm (not finish) |
 |4    | + | - | - | - | + | + | + | + | - | [exam_3llmm_RIsARdARmERmHOm](results/exam_3llmm_RIsARdARmERmHOm_nonc_result.html)             |
 |5    | + | - | - | - | + | - | + | + | - | [exam_3llmm_RIsARdERmHOm](results/exam_3llmm_RIsARdERmHOm_nonc_result.html)                   |
 |6    | + | - | - | - | + | - | + | - | + | [exam_3llmm_RIsARdERmHEm](results/exam_3llmm_RIsARdERmHEm_nonc_result.html)                   |
