@@ -1,0 +1,64 @@
+
+model {
+  # Priors
+  beta ~ dnorm(50, 0.0001)
+  sigma_s ~ dt(0, 1/6.25, 3)T(0,)
+  sigma_d ~ dt(0, 1/6.25, 3)T(0,)
+  eta_d ~ dt(0, 1/6.25, 3)T(0,)
+  phi_d ~ dnorm(0, 4)T(-1, 1)
+  eta_m ~ dt(0, 1/6.25, 3)T(0,)
+  phi_m ~ dnorm(0, 4)T(-1, 1)
+  sigma_epsilon ~ dt(0, 1/6.25, 3)T(0,)
+
+
+  # transformation
+  prec_s <- 1 / sigma_s^2
+  prec_d <- 1 / sigma_d^2
+  prec_eta_d <- 1 / eta_d^2
+  tau_d <- sqrt(eta_d^2 / (1 - phi_d^2))
+  prec_tau_d <- 1 /tau_d^2
+  prec_eta_m <- 1 / eta_m^2
+  tau_m <- sqrt(eta_m^2 / (1 - phi_m^2))
+  prec_tau_m <- 1 / tau_m^2
+  prec_epsilon <- 1 / sigma_epsilon^2
+
+
+  # Level 3
+  for (i in 1:N) {
+    s[i] ~ dnorm(0, prec_s)
+  }
+
+  # Level 2
+  for (i in 1:N) {
+    for (j in 1:D) {
+      d[i, j] ~ dnorm(0, prec_d)
+    }
+  }
+  for (i in 1:N) {
+    nu[i, 1] ~ dnorm(0, prec_tau_d)
+    for (j in 2:D) {
+      nu[i, j] ~ dnorm(phi_d * nu[i, j - 1], prec_eta_d)
+    }
+  }
+
+  # Level 1
+  for (i in 1:N) {
+    for (j in 1:D) {
+      omega[i, j, 1] ~ dnorm(0, prec_tau_m) # AR(1) process for the first moment 
+      for (k in 2:M) {
+        omega[i, j, k] ~ dnorm(phi_m * omega[i, j, k - 1], prec_eta_m)
+      }
+    }
+  }
+
+  # Likelihood
+  for (i in 1:N) {
+    for (j in 1:D) {
+      for (k in 1:M) {
+        mu[i, j, k] <- beta + s[i] + d[i, j] + nu[i, j] + omega[i, j, k]
+        y[i, j, k] ~ dnorm(mu[i, j, k], prec_epsilon)
+      }
+    }
+  }
+}
+

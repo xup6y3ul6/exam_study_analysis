@@ -4,10 +4,10 @@ author: "Tzu-Yao Lin"
 date: last-modified
 execute:
   eval: true
-  warning: false
   cache: false
 params:
   model_name: "default"
+  mcmc_engine: "default"
 format: 
   html:
     toc: true
@@ -16,6 +16,7 @@ format:
     self-contained: true
     code-fold: false
     code-tools: true
+    page-layout: full
 ---
 
 # `{r} params$model_name` results
@@ -26,11 +27,13 @@ First, we need to load the necessary packages.
 
 ```{r}
 #| label: load-packages
+#| warning: false 
 
 library(tidyverse)
 theme_set(theme_bw(base_size = 14))
 library(cmdstanr)
 register_knitr_engine(override = FALSE)
+library(jagsUI)
 library(posterior)
 library(bayesplot)
 color_scheme_set("mix-teal-pink")
@@ -52,10 +55,15 @@ include_HEm <- str_detect(model_name, "HEm")
 
 ```{r}
 #| label: load-fitted-model
- 
-mod_fit <- as_cmdstan_fit(list.files(str_glue("stan/draws/{model_name}"), 
+
+if (mcmc_engine == "stan") {
+  mod_fit <- as_cmdstan_fit(list.files(str_glue("{mcmc_engine}/draws/{model_name}"), 
                                      full.names = TRUE))
-mod_summary <- read_csv(str_glue("stan/summary/{model_name}_summary.csv"))
+} else { # == "jags"
+  mod_fit <- read_rds(str_glue("{mcmc_engine}/draws/{model_name}.rds"))
+}
+
+mod_summary <- read_csv(str_glue("{mcmc_engine}/summary/{model_name}_summary.csv"))
 ```
 
 Sampling information
@@ -74,22 +82,26 @@ Here I list the parameters of interest to check Rhat and n_eff.
 
 ```{r}
 #| label: check-rhat-neff
-
+#|  
+options(digits = 2)
 mod_summary |> 
   filter(variable %in% c("lp__", "beta") | 
          str_starts(variable, "sigma_") |
          str_starts(variable, "phi_") |
          str_starts(variable, "eta_") |
          str_starts(variable, "tau_")) |> 
-rmarkdown::paged_table()
+print(n = Inf, width = Inf)
 ```
 
 ## Trace plots
 
 ```{r}
 #| label: draws
- 
-mod_draws <- mod_fit$draws(format = "df") |>thin_draws(5) 
+if (mcmc_engine == "stan") {
+  mod_draws <- mod_fit$draws(format = "df") |>thin_draws(5) 
+} else { # == "jags"
+  mod_draws <- as_draws_df(mod_fit$samples) |> thin_draws(5)
+}
 
 selected_subj <- c(5, 32, 38, 47, 58, 66, 71, 99, 101)
 ```
@@ -99,7 +111,7 @@ selected_subj <- c(5, 32, 38, 47, 58, 66, 71, 99, 101)
 
 ```{r}
 #| label: trace-variance
-mcmc_trace(mod_draws, pars = vars(starts_with("sigma_")))
+mcmc_trace(mod_draws, pars = vars(starts_with("sigma_", ignore.case = FALSE)))
 ```
 
 ### Autoregressive parameters
