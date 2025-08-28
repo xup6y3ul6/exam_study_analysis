@@ -47,9 +47,9 @@ model name / file name pattern: exam_[model]_[spcification]<.[extension]>
 |-----|---|---|---|---|---|---|---|---|---|----------------------------------|
 |1    | + | + | + | - | - | - | + | + | - | [exam_3llmm_RIsRIdHOdERmHOm](results/exam_3llmm_RIsRIdHOdERmHOm_nonc_result.html)             |
 |2    | + | + | - | + | - | - | + | - | + | [exam_3llmm_RIsRIdHEdERmHEm](results/exam_3llmm_RIsRIdHEdERmHEm_nonc_result.html)             |
-| 2+3 | + | + | - | + | - | + | + | - | + | exam_3llmm_RIsRIdHEdARmERmHEm (not finish)       |
+| 2+3 | + | + | - | + | - | + | + | - | + | [exam_3llmm_RIsRIdHEdARmERmHEm](results/exam_3llmm_RIsRIdHEdARmERmHEm_nonc_result.html)       |
 |3    | + | + | - | - | - | + | + | + | - | [exam_3llmm_RIsRIdHOdARmERmHOm](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_result.html)       |
-| 3+4 | + | + | - | - | + | + | + | + | - | exam_3llmm_RIsRIdHOdARdARmERmHOm (not finish) |
+| 3+4 | + | + | - | - | + | + | + | + | - | [exam_3llmm_RIsRIdHOdARdARmERmHOm](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_result.html) |
 |4    | + | - | - | - | + | + | + | + | - | [exam_3llmm_RIsARdARmERmHOm](results/exam_3llmm_RIsARdARmERmHOm_nonc_result.html)             |
 |5    | + | - | - | - | + | - | + | + | - | [exam_3llmm_RIsARdERmHOm](results/exam_3llmm_RIsARdERmHOm_nonc_result.html)                   |
 |6    | + | - | - | - | + | - | + | - | + | [exam_3llmm_RIsARdERmHEm](results/exam_3llmm_RIsARdERmHEm_nonc_result.html)                   |
