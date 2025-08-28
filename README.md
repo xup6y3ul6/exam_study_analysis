@@ -58,7 +58,7 @@ Fixed
 
 - If I used the lmm expression for AR(1) process instead of the ssm expression
   - Model 3_m: [exam_3llmm_RIsRIdHOdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_result.html)
-  - Model (3+4)_m:
+  - Model (3+4)_m: [exam_3llmm_RIsRIdHOdARdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_result.html)
 - Sophie's suggestion: fix the range of beta and center parameterized for the day random effect.
   - Model 3_fix: [exam_3llmm_RIsRIdHOdARmERmHOm_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_centd_result.html)
   - Model 3_fix (non-centerized other parameters) [exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd_result.html)
