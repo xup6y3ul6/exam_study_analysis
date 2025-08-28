@@ -54,6 +54,11 @@ model name / file name pattern: exam_[model]_[spcification]<.[extension]>
 |5    | + | - | - | - | + | - | + | + | - | [exam_3llmm_RIsARdERmHOm](results/exam_3llmm_RIsARdERmHOm_nonc_result.html)                   |
 |6    | + | - | - | - | + | - | + | - | + | [exam_3llmm_RIsARdERmHEm](results/exam_3llmm_RIsARdERmHEm_nonc_result.html)                   |
 
-If I used the lmm expression for AR(1) process instead of the ssm expression
+Fixed
 
-Model 3': [exam_3llmm_RIsRIdHOdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_result.html)
+- If I used the lmm expression for AR(1) process instead of the ssm expression
+  - Model 3_m: [exam_3llmm_RIsRIdHOdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_result.html)
+  - Model (3+4)_m:
+- Sophie's suggestion: fix the range of beta and center parameterized for the day random effect.
+  - Model 3_fix: [exam_3llmm_RIsRIdHOdARmERmHOm_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_centd_result.html)
+  - Model 3_fix (non-centerized other parameters) [exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd_result.html)
