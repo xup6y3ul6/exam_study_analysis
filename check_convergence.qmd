@@ -56,14 +56,14 @@ include_HEm <- str_detect(model_name, "HEm")
 ```{r}
 #| label: load-fitted-model
 
-if (mcmc_engine == "stan") {
-  mod_fit <- as_cmdstan_fit(list.files(str_glue("{mcmc_engine}/draws/{model_name}"), 
+if (params$mcmc_engine == "stan") {
+  mod_fit <- as_cmdstan_fit(list.files(str_glue("{params$mcmc_engine}/draws/{model_name}"), 
                                      full.names = TRUE))
 } else { # == "jags"
-  mod_fit <- read_rds(str_glue("{mcmc_engine}/draws/{model_name}.rds"))
+  mod_fit <- read_rds(str_glue("{params$mcmc_engine}/draws/{model_name}.rds"))
 }
 
-mod_summary <- read_csv(str_glue("{mcmc_engine}/summary/{model_name}_summary.csv"))
+mod_summary <- read_csv(str_glue("{params$mcmc_engine}/summary/{model_name}_summary.csv"))
 ```
 
 Sampling information
@@ -97,7 +97,7 @@ print(n = Inf, width = Inf)
 
 ```{r}
 #| label: draws
-if (mcmc_engine == "stan") {
+if (params$mcmc_engine == "stan") {
   mod_draws <- mod_fit$draws(format = "df") |>thin_draws(5) 
 } else { # == "jags"
   mod_draws <- as_draws_df(mod_fit$samples) |> thin_draws(5)

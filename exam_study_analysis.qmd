@@ -6,8 +6,6 @@ execute:
   eval: true
   warning: false
   cache: false
-params:
-  model_name: "default"
 format: 
   html:
     toc: true
@@ -116,6 +114,55 @@ There are two types of negative (or positive) affect measurements in the data:
 
 Note that, in my previous analysis, I used the **Neg_aff_comp** as the outcome variable. But here I will use the **Neg_aff** instead, because it is more concise for our model, which is based on the single measurement rather than the composite score.
 
+
+The data struture is as follows:
+
+- Level 3: Participant (N = 101) 
+- Level 2: Day (D = 9) per each participant
+- Level 1: Moment (M = 10) per each day and each participant.
+
+Therefore, each participant has 90 measurements in total. However, due to the missing data, the actual number of observations is less than 9090 (= 101 * 9 * 10).
+
+```{r}
+library(dtwclust)
+library(imputeTS)
+
+ts <- data |> 
+  select(Participant, Neg_aff) |> 
+  nest(data = Neg_aff) |> 
+  mutate(NegAff = map(data, pull, Neg_aff)) |> 
+  pull(NegAff)
+
+ts_imputed <- map(ts, na_kalman)
+
+clu <- tsclust(ts_imputed, type = "partitional", k = 9, distance = "gak", centroid = "pam")
+
+data |> 
+  add_column(Cluster = factor(rep(clu@cluster, each = 90))) |> 
+  mutate(Date_time = as_datetime(days(Day) + Time)) |> 
+  ggplot(aes(x = Date_time, y = Neg_aff, color = factor(Participant))) + 
+  geom_line() + geom_point() +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_datetime(breaks = as_datetime(1:9 * 86400),
+                  labels = paste("Day", 1:9)) + 
+  facet_wrap(~ Cluster, ncol = 3) +
+  theme(legend.position = "none")
+
+```
+```{r}
+for (i in 1:5) {
+  g <- data |> 
+    filter(Participant %in% (20*(i-1)+1):(20*i)) |> 
+    mutate(Date_time = as_datetime(days(Day) + Time)) |> 
+    ggplot(aes(x = Date_time, y = Neg_aff, color = factor(Participant))) + 
+    geom_line() + geom_point() +
+    coord_cartesian(ylim = c(0, 100)) +
+    scale_x_datetime(breaks = as_datetime(1:9 * 86400),
+                    labels = paste("Day", 1:9))
+    #facet_grid(Participant ~ .)
+  print(g)
+}
+```
 
 Give some plot to show their difference
 

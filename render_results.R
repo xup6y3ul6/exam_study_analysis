@@ -1,12 +1,12 @@
 library(quarto)
 library(tidyverse)
 
-mcmc_engine <- "jags" # or "stan"
+mcmc_engine <- "stan" # "stan" or "jags"
 model_names <- list.dirs(str_glue("{mcmc_engine}/draws"), full.names = FALSE, recursive = FALSE) |> 
-  #str_subset("nonc_m")
+  str_subset("nonc_m")
 model_names
 
-for (m in model_names[1]) {
+for (m in model_names[c(1, 3, 5)]) {
   tryCatch ({
     print(str_glue("Started: {m}"))
     file_name <- str_glue("{m}_result.html")
@@ -15,7 +15,7 @@ for (m in model_names[1]) {
       execute_params = list(model_name = m, mcmc_engine = mcmc_engine),
       output_file = file_name)
     
-    file.rename(file_name, file.path("results", mcmc_engine, file_name))
+    file.rename(file_name, file.path("results", file_name))
 
     print(str_glue("Finished: {m}\n"))
   }, error = function(e){

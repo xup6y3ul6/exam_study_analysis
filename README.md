@@ -53,12 +53,17 @@ model name / file name pattern: exam_[model]_[spcification]<.[extension]>
 |4    | + | - | - | - | + | + | + | + | - | [exam_3llmm_RIsARdARmERmHOm](results/exam_3llmm_RIsARdARmERmHOm_nonc_result.html)             |
 |5    | + | - | - | - | + | - | + | + | - | [exam_3llmm_RIsARdERmHOm](results/exam_3llmm_RIsARdERmHOm_nonc_result.html)                   |
 |6    | + | - | - | - | + | - | + | - | + | [exam_3llmm_RIsARdERmHEm](results/exam_3llmm_RIsARdERmHEm_nonc_result.html)                   |
+|7    | + | - | - | - | - | + | + | + | - | [exam_3llmm_RIsRIdHEdARdARmERmHOm](results/exam_3llmm_RIsRIdHEdARdARmERmHOm_nonc_result.html)                   |
 
-Fixed
+
+Additional runs:
 
 - If I used the lmm expression for AR(1) process instead of the ssm expression
   - Model 3_m: [exam_3llmm_RIsRIdHOdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_result.html)
   - Model (3+4)_m: [exam_3llmm_RIsRIdHOdARdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_result.html)
+- Longer version of MCMC (chain = 4, burnin = 32000, iter = 32000, thin = 4)
+  - Model 3_m_long: [exam_3llmm_RIsRIdHOdARmERmHOm_m_long](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_long_result.html)
+  - Model (3+4)_m_long: [exam_3llmm_RIsRIdHOdARdARmERmHOm_m_long](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_long_result.html)
 - Sophie's suggestion: fix the range of beta and center parameterized for the day random effect.
   - Model 3_fix: [exam_3llmm_RIsRIdHOdARmERmHOm_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_centd_result.html)
   - Model 3_fix (non-centerized other parameters) [exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd_result.html)
