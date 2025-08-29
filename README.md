@@ -53,7 +53,7 @@ model name / file name pattern: exam_[model]_[spcification]<.[extension]>
 |4    | + | - | - | - | + | + | + | + | - | [exam_3llmm_RIsARdARmERmHOm](results/exam_3llmm_RIsARdARmERmHOm_nonc_result.html)             |
 |5    | + | - | - | - | + | - | + | + | - | [exam_3llmm_RIsARdERmHOm](results/exam_3llmm_RIsARdERmHOm_nonc_result.html)                   |
 |6    | + | - | - | - | + | - | + | - | + | [exam_3llmm_RIsARdERmHEm](results/exam_3llmm_RIsARdERmHEm_nonc_result.html)                   |
-|7    | + | - | - | - | - | + | + | + | - | [exam_3llmm_RIsRIdHEdARdARmERmHOm](results/exam_3llmm_RIsRIdHEdARdARmERmHOm_nonc_result.html)                   |
+|7    | + | + | - | + | + | + | + | + | - | [exam_3llmm_RIsRIdHEdARdARmERmHOm](results/exam_3llmm_RIsRIdHEdARdARmERmHOm_nonc_m_result.html)                   |
 
 
 Additional runs:
