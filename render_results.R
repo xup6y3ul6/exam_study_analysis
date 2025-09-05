@@ -2,11 +2,12 @@ library(quarto)
 library(tidyverse)
 
 mcmc_engine <- "stan" # "stan" or "jags"
-model_names <- list.dirs(str_glue("{mcmc_engine}/draws"), full.names = FALSE, recursive = FALSE) |> 
-  str_subset("nonc_m")
+model_names <- list.dirs(str_glue("{mcmc_engine}/draws"), 
+                                  full.names = FALSE, recursive = FALSE) |> 
+  str_subset("nonc")
 model_names
 
-for (m in model_names[c(1, 3, 5)]) {
+for (m in model_names) {
   tryCatch ({
     print(str_glue("Started: {m}"))
     file_name <- str_glue("{m}_result.html")
