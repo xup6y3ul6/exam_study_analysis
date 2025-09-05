@@ -70,17 +70,17 @@ Additional runs:
   - Model 3_fix: [exam_3llmm_RIsRIdHOdARmERmHOm_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_centd_result.html)
   - Model 3_fix (non-centerized other parameters) [exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd_result.html)
 - Two day variances
-  - Day 3 has a speicific variance, other days share another variance.
-    - Noncentered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver1_result.html)
-    - Centered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_ver1_result.html)
-    - Centered parameterization with phi_beta: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_phibeta_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_phibeta_ver1_result.html)
   - Days 3 and 4 have a speicific variance, other days share another variance.
-    - Noncentered parameterization: Noncentered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver2_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver2_result.html)
+    - Noncentered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_nonc_m_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_nonc_m_ver1_result.html)
+    - Centered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_ver1_result.html)
+    - Centered parameterization with phi_beta: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_phibeta_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_phibeta_ver1_result.html)
+  - Day 3 has a speicific variance, other days share another variance.
+    - Noncentered parameterization: Noncentered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_nonc_m_ver2_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_nonc_m_ver2_result.html)
 
 
-## Primary Restults
+## Preliminary Restults
 
-The primary results are based on Model 3+4: `exam_3llmm_RIsRIdHOdARdARmERmHOm.stan`. The reliaiblity analysis please check:
+The preliminary results are based on Model 3+4: `exam_3llmm_RIsRIdHOdARdARmERmHOm.stan`. The reliaiblity analysis please check:
 
 - (Not fully finished yet) [exam_study_analysis](results/exam_study_analysis.html)
 
