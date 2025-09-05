@@ -14,6 +14,7 @@ format:
     self-contained: true
     code-fold: false
     code-tools: true
+    include-in-header: mathjax.html
 ---
 
 # Setup
@@ -22,6 +23,7 @@ First, we need to load the necessary packages.
 
 ```{r}
 #| label: load-packages
+#| warning: false 
 
 library(tidyverse)
 theme_set(theme_bw(base_size = 14))
@@ -123,7 +125,24 @@ The data struture is as follows:
 
 Therefore, each participant has 90 measurements in total. However, due to the missing data, the actual number of observations is less than 9090 (= 101 * 9 * 10).
 
+
 ```{r}
+#| label: fig-overall-trend
+
+data |> 
+  mutate(Date_time = as_datetime(days(Day) + Time)) |> 
+  ggplot(aes(x = Date_time, y = Neg_aff)) + 
+  geom_line(aes(group = factor(Participant)), color = "grey") + 
+  geom_point(color = "grey") +
+  geom_smooth() +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_x_datetime(breaks = as_datetime(1:9 * 86400),
+                  labels = paste("Day", 1:9)) 
+```
+
+```{r}
+#| label: fig-cluster-and-ts-plot
+ 
 library(dtwclust)
 library(imputeTS)
 
@@ -135,7 +154,7 @@ ts <- data |>
 
 ts_imputed <- map(ts, na_kalman)
 
-clu <- tsclust(ts_imputed, type = "partitional", k = 9, distance = "gak", centroid = "pam")
+clu <- tsclust(ts_imputed, type = "partitional", k = 9, distance = "dtw_basic", centroid = "dba", seed = 20250829)
 
 data |> 
   add_column(Cluster = factor(rep(clu@cluster, each = 90))) |> 
@@ -149,157 +168,397 @@ data |>
   theme(legend.position = "none")
 
 ```
-```{r}
-for (i in 1:5) {
-  g <- data |> 
-    filter(Participant %in% (20*(i-1)+1):(20*i)) |> 
-    mutate(Date_time = as_datetime(days(Day) + Time)) |> 
-    ggplot(aes(x = Date_time, y = Neg_aff, color = factor(Participant))) + 
-    geom_line() + geom_point() +
-    coord_cartesian(ylim = c(0, 100)) +
-    scale_x_datetime(breaks = as_datetime(1:9 * 86400),
-                    labels = paste("Day", 1:9))
-    #facet_grid(Participant ~ .)
-  print(g)
-}
-```
+ 
 
-Give some plot to show their difference
-
-```{r}
-
-```
 
 
 ```{r}
-ave_neg_by_day <- data |> 
+#| label: check-day-var
+
+ave_na_by_day <- data |> 
   group_by(Participant, Day) |> 
-  summarise(ave_neg_aff = mean(Neg_aff))
+  summarise(ave_neg_aff = mean(Neg_aff, na.rm = TRUE)) |> 
+  ungroup() |> 
+  pivot_wider(names_from = Day, values_from = ave_neg_aff, names_prefix = "Day_") |> 
+  select(-Participant) |> 
+  as.matrix()
 
-
+var(ave_na_by_day)
+cor(ave_na_by_day)
 ```
-
-
-
-```{r}
-
-```
-
 
 
 # Model
 
-The general model is 
+The general model is: RI_s + RI_d (Hetero) + AR_d + AR_m + Error (Hetero)
 
-RI_s + RI_d (Hetero) + AR_s + Error (Hetero)
-
-?RI_s + RI_d (Homo) + AR_s + Error (Homo)
+The currenet model used here is: RI_s + RI_d (Homo) + AR_d + AR_m + Error (Homo).
 
 # Reliability
 
+$R_T$
+
+$$
+  \begin{aligned}
+    \R_T 
+    &= 1 - \frac{\tr(\symbf{\Sigma}_{R})}{\tr(\symbf{V})} = \frac{\tr(\symbf{Z \Psi Z^\top})}{\tr(\symbf{Z \Psi Z^\top}) + \tr(\symbf{\Sigma}_D) + \tr(\symbf{\Sigma}_M) + \tr(\symbf{\Sigma}_E)} \\
+    &= \frac{\sigma_s^2 + \bar{\sigma_{d\cdot}^2}}{\sigma_s^2 + \bar{\sigma_{d\cdot}^2} + \tau_d^2 + \tau_m^2 + \bar{\sigma_{\epsilon\cdot}^2}} .
+  \end{aligned}
+$$
+
+where $\bar{\sigma_{\epsilon .}^2} = \sum_{j=1}^{D}\frac{\sigma_{d j}^2}{D}$ and $\bar{\sigma_{\epsilon .}^2} = \sum_{k=1}^{M}\frac{\sigma_{\epsilon k}^2}{M}$.
 
 
-```{r}
-#| label: rel-fun
+$R_\Lambda$
 
-R_T <- function() {
+$$
+  \R_{\Lambda} = 1 - \frac{|\symbf{\Sigma_{R}}|}{|\symbf{V}|}
+$$
 
-}
 
-R_Lambda <- function() {
+| Reliability | Between-person | Within-person |
+|-------------|----------------|---------------|
+|Moment-by-moment|$\rho_{\tiny M}^{\tiny B} = \Cor(y_{ijk}, y_{ijk'}) = \frac{\sigma_s^2 + \sigma_{d j}^2 +  \tau_d^2 +\tau_m^2\phi_m^{|k-k'|}}{\sqrt{\sigma_s^2 + \sigma_{d j}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k}^2}\sqrt{\sigma_s^2 + \sigma_{d j}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k'}^2}}$|$\rho_{\tiny M}^{\tiny W} = \Cor(y_{ijk}, y_{ijk'} \mid i) = \frac{\sigma_{d j}^2 + \tau_d^2 +\tau_m^2\phi_m^{|k-k'|}}{\sqrt{\sigma_{d j}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k}^2}\sqrt{\sigma_{d j}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k'}^2}}$|
+|Day-to-Day (singel)|$\rho_{\tiny D}^{\tiny B} = \Cor(y_{ijk}, y_{ij'k'}) = \frac{\sigma_s^2 + \tau_d^2\phi_d^{|j-j'|}}{\sqrt{\sigma_s^2 + \sigma_{d j}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k}^2}\sqrt{\sigma_s^2 + \sigma_{d j'}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k'}^2}}$|$\rho_{\tiny D}^{\tiny W} = \Cor(y_{ijk}, y_{ij'k'} \mid i) = \frac{\tau_d^2\phi_d^{|j-j'|}}{\sqrt{\sigma_{d j}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k}^2}\sqrt{\sigma_{d j'}^2 + \tau_d^2 +\tau_m^2 + \sigma_{\epsilon k'}^2}}$|
+|Day-to-Day (average)|$\rho_{\tiny D??}^{\tiny B} = \Cor(\bar{y}_{ij\cdot}, \bar{y}_{ij'\cdot}) = \frac{\sigma_s^2 + \tau_d^2\phi_d^{|j-j'|}}{\sqrt{\sigma_s^2 + \sigma_{d j}^2 + \tau_d^2 + \bar{\tau_m^2} + \bar{\sigma_\epsilon^2}}\sqrt{\sigma_s^2 + \sigma_{d j'}^2 + \tau_d^2 + \bar{\tau_m^2} + \bar{\sigma_{\epsilon .}^2}}}$|$\rho_{\tiny D??}^{\tiny W} = \Cor(\bar{y}_{ij\cdot}, \bar{y}_{ij'\cdot} \mid i) = \frac{\tau_d^2\phi_d^{|j-j'|}}{\sqrt{\sigma_{d j}^2 + \tau_d^2 + \bar{\tau_m^2} + \bar{\sigma_\epsilon^2}}\sqrt{\sigma_{d j'}^2 + \tau_d^2 + \bar{\tau_m^2} + \bar{\sigma_{\epsilon .}^2}}}$|
 
-}
+where $\bar{\tau_m^2} = \frac{\tau_m^2}{M}$ and $\bar{\sigma_{\epsilon .}^2} = \sum_{k=1}^{M}\frac{\sigma_{\epsilon k}^2}{M}$.
 
-rho_
 
-```
 
 # Fitting
 
-::: {.panel-tabset}
-
 ```{r}
+#| label: model-setup
+ 
 N <- 101
 D <- 9
 M <- 10
-model_name <- "exam_3llmm_RIsRIdHOdERmHOm"
-seed <- 20250814
+model_name <- "exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_long"
 ```
 
-
-## Stan
-
+Note that, I used the non-centered parameterization for the random effects to improve the sampling efficiency. As for the AR(1) processes, I used the Cholesky decomposition to handle the multivariate normal distribution with the AR(1) covariance structure.
 
 ```{cmdstan}
-#| label: stan-exam_3llmm_RIsRIdHEdARmERmHEm
+#| label: stan-exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m
 #| output.var: lmm-full
 #| eval: false
-#| filename: stan/exam_3llmm_RIsRIdHEdARmERmHEm.stan
+#| filename: stan/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m.stan
 
-{{< include stan/exam_3llmm_RIsRIdHEdARmERmHEm.stan >}}
-
+{{< include stan/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m.stan >}}
 ```
 
 ```{r}
-#| label: stan-setting
+#| label: load-mcmc-draws
+ 
+mod_fit <- as_cmdstan_fit(list.files(str_glue("stan/draws/{model_name}"), 
+                                     pattern = "csv", full.names = TRUE))
+```
 
-output_dir_stan = str_glue("stan/draws/{model_name}")
+# Results
 
-unlink(output_dir_stan, recursive = TRUE)
-dir.create(output_dir_stan, recursive = TRUE)
+```{r}
+#| label: load-mcmc-summary
+ 
+mod_summary <- read_csv(str_glue("stan/summary/{model_name}_summary.csv"))
+mod_summary |> 
+  filter(variable %in% c("lp__", "beta") | 
+         str_starts(variable, "sigma_") |
+         str_starts(variable, "phi_") |
+         str_starts(variable, "eta_") |
+         str_starts(variable, "tau_")) |> 
+print(n = Inf, width = Inf)
+
+```
 
 
-obs_index <- which(!data$Missing)
+The convergence diagostics look good. See <https://xup6y3ul6.github.io/exam_study_analysis/results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_long_result.html> for details.
 
-data_stan <- list(
-  N = 101, D = 9, M = 10, 
-  N_obs = length(obs_index),
-  ii_obs = data$Participant[obs_index], 
-  jj_obs = data$Day[obs_index],
-  kk_obs = data$Moment[obs_index], 
-  y_obs = data$Neg_aff[obs_index]
+
+
+## Posterior distributions of variacnce and autoregressive parameters
+
+```{r}
+#| label: get-mcmc-draws
+
+mod_draws <- mod_fit$draws(format = "matrix")
+```
+
+```{r}
+#| label: fig-intervals-sd-tau
+ 
+mcmc_intervals(mod_draws, pars = vars(starts_with("sigma_", ignore.case = FALSE),
+                                      starts_with("tau_")))
+```
+
+```{r}
+#| label: fig-intervals-phi
+
+mcmc_intervals(mod_draws, pars = vars(starts_with("phi_")))
+```
+
+
+## Overall fitted trend
+
+
+
+```{r}
+#| label: get-y-hat
+
+get_y_hat_draws <- function(draws, include_AR = FALSE) {
+  y_hat_draws <- matrix(NA, nrow = nrow(draws), ncol = N*D*M)
+  var_names <- vector("character", length = N*D*M)
+
+  for (i in 1:N) {
+    for (j in 1:D) {
+      for (k in 1:M) {
+        index_ijk <- (i - 1) * D * M + (j - 1) * M + k
+        var_names[index_ijk] <- str_glue("y_hat[{i},{j},{k}]")
+
+        y_hat <- draws[, "beta"] +
+          draws[, str_glue("s[{i}]")] + 
+          draws[, str_glue("d[{i},{j}]")]
+        
+        if (include_AR) {
+          y_hat <- y_hat +
+            draws[, str_glue("nu[{i},{j}]")] +
+            draws[, str_glue("omega[{i},{j},{k}]")] 
+        }
+
+        y_hat_draws[, index_ijk] <- y_hat
+      }
+    }
+  }
+  colnames(y_hat_draws) <- var_names
+  return(y_hat_draws)
+}
+```
+
+The blue line is: $\hat{y}_{ijk} = \hat{\beta} + \hat{s}_i + \hat{d}_{ij} + \hat{\nu}_{ij} + \hat{\omega}_{ijk}$.
+
+The red line is: $\hat{y}_{ijk} = \hat{\beta} + \hat{s}_i + \hat{d}_{ij} + \hat{\nu}_{ij} + \hat{\omega}_{ijk}$.
+
+```{r}
+#| label: fig-lmm-fit
+#| fig-cap: The fitted results
+ 
+y_hat_draws <- get_y_hat_draws(mod_draws, include_AR = TRUE)
+y_hat_summary <- summarise_draws(y_hat_draws, mean, median, quantile2)
+
+data_predict <- y_hat_summary |> 
+  mutate(Indices = str_extract_all(variable, "\\d+"), 
+         Participant = map_dbl(Indices, \(x) as.integer(x[1])),
+         Day = map_dbl(Indices, \(x) as.integer(x[2])),
+         Moment = map_dbl(Indices, \(x) as.integer(x[3]))) |> 
+  right_join(data)
+
+selected_subj <- c(5, 32, 38, 47, 58, 66, 71, 99, 101)
+
+rect_data <- data.frame(
+  Day = 1:9,
+  xmin = as_datetime(1:9 * 86400),
+  xmax = as_datetime((1:9 + 1) * 86400),
+  ymin = -Inf,
+  ymax = Inf,
+  color = ifelse((1:9 + 1) %% 2 == 0, "grey85", NA) 
 )
 
-mod_stan <- cmdstan_model(str_glue("stan/{model_name}.stan"), force_recompile = TRUE)
+g_yhat <- data_predict |> 
+  filter(Participant %in% selected_subj) |> 
+  mutate(Date_time = as_datetime(days(Day) + Time)) |> 
+  ggplot(aes(x = Date_time, y = Neg_aff)) + 
+  geom_rect(data = rect_data, 
+            aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = color), 
+            inherit.aes = FALSE, 
+            alpha = 0.5) +
+  geom_line() + geom_point() +
+  geom_line(aes(y = mean), linetype = "dashed", color = "cornflowerblue") +
+  geom_ribbon(aes(ymin = q5, ymax = q95), alpha = 0.25, fill = "cornflowerblue") +
+  coord_cartesian(ylim = c(-20, 100)) +
+  scale_x_datetime(breaks = as_datetime(1:9 * 86400),
+                   labels = paste("Day", 1:9)) +
+  scale_y_continuous(breaks = seq(0, 100, by = 25)) +
+  scale_fill_identity() +
+  facet_grid(Participant ~ ., space = "free_y") 
+g_yhat
+```
+
+
+However, if I remove out the AR components, the fitted results look much worse.
+
+```{r}
+#| label: fig-lmm-fit-w/wo-AR
+#| fig-cap: The fitted results with/without AR components
+
+y_hat_woAR_draws <- get_y_hat_draws(mod_draws, include_AR = FALSE)
+y_hat_woAR_summary <- summarise_draws(y_hat_woAR_draws, mean, median, quantile2)
+
+data_predict2 <- y_hat_woAR_summary |> 
+  mutate(Indices = str_extract_all(variable, "\\d+"), 
+         Participant = map_dbl(Indices, \(x) as.integer(x[1])),
+         Day = map_dbl(Indices, \(x) as.integer(x[2])),
+         Moment = map_dbl(Indices, \(x) as.integer(x[3]))) |> 
+  right_join(data) |> 
+  filter(Participant %in% selected_subj) |> 
+  mutate(Date_time = as_datetime(days(Day) + Time))
+
+g_yhat2 <- g_yhat +
+  geom_line(data = data_predict2, aes(x = Date_time, y = mean), 
+            linetype = "dashed", color = "lightcoral") +
+  geom_ribbon(data = data_predict2, aes(x = Date_time, ymin = q5, ymax = q95), 
+              alpha = 0.25, fill = "lightcoral") 
+g_yhat2
 ```
 
 
 
+## Reliability
+
 ```{r}
-#| label: stan-fit
+#| label: build-rel-fun
+
+get_R_T_draws <- function(draws) {
+  sigma_s <- draws[, "sigma_s"]
+  sigma_d <- draws[, "sigma_d"]
+  tau_d <- draws[, "tau_d"]
+  tau_m <- draws[, "tau_m"]
+  sigma_epsilon <- draws[, "sigma_epsilon"]
+  
+  R_T <- (sigma_s^2 + sigma_d^2) / (sigma_s^2 + sigma_d^2 + tau_d^2 + tau_m^2 + sigma_epsilon^2)
+  colnames(R_T) <- "R_T"
+  return(R_T)
+}
+
+get_R_Lambda_draws <- function(draws) {
+  draws_list <- list(
+    sigma_s = draws[, "sigma_s"],
+    sigma_d = draws[, "sigma_d"],
+    Sigma_d = draws[, str_glue("Sigma_d[{rep(1:D, each = D)},{rep(1:D, times = D)}]")] |>
+      asplit(1) |>
+      map(~ matrix(.x, nrow = D, ncol = D)), 
+    Sigma_m = draws[, str_glue("Sigma_m[{rep(1:M, each = M)},{rep(1:M, times = M)}]")] |> 
+      asplit(1) |> 
+      map(~ matrix(.x, nrow = M, ncol = M)),
+    sigma_epsilon = draws[, "sigma_epsilon"])
+
+  calc_R_Lambda <- function(sigma_s, sigma_d, Sigma_d, Sigma_m, sigma_epsilon){
+    Z <- cbind(1, diag(rep(1, D))) %x% rep(1, M)
+    Psi <- diag(c(sigma_s, rep(sigma_d, D)))
+    Sigma_D <- Sigma_d %x% matrix(1, nrow = M, ncol = M)
+    Sigma_M <- diag(rep(1, D)) %x% Sigma_m
+    Sigma_E <- diag(rep(sigma_epsilon, D * M))
+
+    Sigma_R <- Sigma_D + Sigma_M + Sigma_E
+    V <- Z %*% Psi %*% t(Z) + Sigma_R
+
+    # Return the calculated value
+    1 - det(Sigma_R) / det(V)
+  }
+
+  R_Lambda <- furrr::future_pmap_dbl(draws_list, calc_R_Lambda, .progress = TRUE)
+  R_Lambda <- matrix(R_Lambda, ncol = 1)
+  colnames(R_Lambda) <- "R_Lambda"
+  return(R_Lambda)
+}
+
+get_rho_draws <- function(draws, days, moments, level = c("B", "W"), ave_by_day = FALSE) {
+  day_gap <- abs(diff(days))
+  moment_gap <- abs(diff(moments))
+  if (ave_by_day == TRUE) moments <- c(".", ".")
+
+  sigma_s <- draws[, "sigma_s"]
+  sigma_d <- draws[, "sigma_d"]
+  tau_d <- draws[, "tau_d"]
+  tau_m <- ifelse(ave_by_day, draws[, "tau_m"]/sqrt(M), draws[, "tau_m"])
+  phi_d <- draws[, "phi_d"]
+  phi_m <- draws[, "phi_m"]
+  sigma_epsilon <- ifelse(ave_by_day, draws[, "sigma_epsilon"]/sqrt(M), draws[, "sigma_epsilon"])
+
+  if (level == "B") {
+    rho <- (sigma_s^2 + (day_gap==0)*(sigma_d^2) + tau_d^2*phi_d^day_gap + (day_gap==0)*(tau_m^2 * phi_m^moment_gap)) /
+      (sigma_s^2 + sigma_d^2 + tau_d^2 + tau_m^2 + sigma_epsilon^2)
+  } else if (level == "W") {
+    rho <-((day_gap==0)*(sigma_d^2) + tau_d^2*phi_d^day_gap + (day_gap==0)*(tau_m^2 * phi_m^moment_gap)) /
+      (sigma_d^2 + tau_d^2 + tau_m^2 + sigma_epsilon^2)
+  } else {
+    stop("level must be either 'B' or 'W'")
+  }
+  colnames(rho) <- str_glue("rho({days[1]}{moments[1]},{days[2]}{moments[2]})_{level}")
+  return(rho)
+}
+
+```
+
+```{r}
+#| label: cal-R
+
+R_T_draws <- get_R_T_draws(mod_draws)
+R_Lambda_draws <- get_R_Lambda_draws(mod_draws)
+R_T_Lambda <- cbind(R_T_draws, R_Lambda_draws)
+```
+
+
+```{r}
+#| label: cal-rho-B
+
+second_moments <- 2:10
+second_days <- 2:9
+
+rho_m2m_B <- map(second_moments, \(m2) get_rho_draws(mod_draws, days = c(1, 1), moments = c(1, m2), level = "B")) |> 
+  reduce(cbind) 
+rho_d2d_B <- map(second_days, \(d2) get_rho_draws(mod_draws, days = c(1, d2), moments = c(1, 1), level = "B")) |> 
+  reduce(cbind)
+rho_d2d_ave_B <- map(second_days, \(d2) get_rho_draws(mod_draws, days = c(1, d2), moments = c(1, 1), level = "B", ave_by_day = TRUE)) |> 
+  reduce(cbind)
+```
+
+
+```{r}
+#| label: cal-rho-W
+ 
+rho_m2m_W <- map(second_moments, \(m2) get_rho_draws(mod_draws, days = c(1, 1), moments = c(1, m2), level = "W")) |> 
+  reduce(cbind) 
+rho_d2d_W <- map(second_days, \(d2) get_rho_draws(mod_draws, days = c(1, d2), moments = c(1, 1), level = "W")) |> 
+  reduce(cbind)
+rho_d2d_ave_W <- map(second_days, \(d2) get_rho_draws(mod_draws, days = c(1, d2), moments = c(1, 1), level = "W", ave_by_day = TRUE)) |> 
+  reduce(cbind)
+```
+
+
+```{r}
+#| label: fig-R-rho-B
+
+rel <- cbind(R_T_Lambda, 
+             rho_m2m_B, rho_d2d_B, rho_d2d_ave_B,
+             rho_m2m_W, rho_d2d_W, rho_d2d_ave_W)
+
+g_rel_B <- mcmc_intervals(rel, pars = vars(starts_with("R", ignore.case = FALSE) | ends_with("_B"))) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.2)) 
+g_rel_B
+```
+
+```{r}
+#| label: fig-rho-W
+
+color_scheme_set("red")
+g_rel_W <- mcmc_intervals(rel, pars = vars(ends_with("_W"))) +
+  scale_x_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.2)) 
+
+g_rel_W
+```
+
+# Model comparison?
+
+
+
+```{r}
 #| eval: false
-#  
-mod_fit_stan <- mod_stan$sample(
-  data = data_stan, 
-  chains = 4, 
-  parallel_chains = 4,
-  output_dir = output_dir_stan, 
-  iter_warmup = 4000, 
-  iter_sampling = 4000,
-  thin = 1, 
-  seed = seed, 
-  refresh = 1000, 
-  show_messages = TRUE
-)
-
-
-# lmm_summary <- lmm_fit$summary()
-
-# write_csv(lmm_summary, str_glue("stan/summary/{file_name}_summary.csv"))
-```
-
-```{r}
-mod_fit_stan <- as_cmdstan_fit(list.files(str_glue("stan/draws/{model_name}"), 
-                                           pattern = "csv", full.names = TRUE))
-```
-
-```{r}
 mod_bs <- bridge_sampler(mod_fit_stan)
 ```
 
 
 ```{r}
-
+#| eval: false
 my_bridge_sampler <- function(fit, ...) {
   
   usamples <- fit$unconstrain_draws(format = "matrix")
@@ -328,295 +587,8 @@ mod_bs
 
 ```
 
-[bound]
-Bridge sampling estimate of the log marginal likelihood: -34967.89
-Estimate obtained in 1001 iteration(s) via method "normal".
 
-[unbound]
-Bridge sampling estimate of the log marginal likelihood: -34966.34
-Estimate obtained in 1001 iteration(s) via method "normal".
-Bridge sampling estimate of the log marginal likelihood: -34966.82
-Estimate obtained in 1001 iteration(s) via method "normal".
 
-
-Rversion
-```{r}
-
-# 1. 提取後驗樣本為矩陣 (不包含 lp__)
-posterior_samples_no_lp <- mod_fit_stan$draws(format = "df") |>
-  dplyr::select(-.chain, -.iteration, -.draw, -lp__)
-
-# 2. 在 R 中手動建立 log_prob 函數
-# 這需要將您的 Stan 模型翻譯成 R
-log_posterior_R <- function(pars, ...) {
-  
-  # 將傳入的無名向量 pars 賦予正確的名稱
-  names(pars) <- colnames(posterior_samples_no_lp)
-  
-  # 提取單一參數
-  beta <- pars[["beta"]]
-  sigma_s <- pars[["sigma_s"]]
-  sigma_d <- pars[["sigma_d"]]
-  sigma_epsilon <- pars[["sigma_epsilon"]]
-  
-  # 提取向量/陣列參數
-  s <- pars[startsWith(names(pars), "s[")]
-  d_vec <- pars[startsWith(names(pars), "d[")]
-  # 將 d 從向量轉回矩陣
-  d <- matrix(d_vec, nrow = 101, ncol = 9, byrow = FALSE)
-  
-  # --- 開始計算對數機率 ---
-  # 與您的 Stan 模型完全對應
-  
-  # Priors
-  log_prob <- dnorm(beta, 50, 100, log = TRUE) +
-              dnorm(sigma_s, 0, 2.5, log = TRUE) + # 假設您接受了 half-normal
-              dnorm(sigma_d, 0, 2.5, log = TRUE) +
-              dnorm(sigma_epsilon, 0, 2.5, log = TRUE)
-  
-  # Level 3
-  log_prob <- log_prob + sum(dnorm(s, 0, sigma_s, log = TRUE))
-  
-  # Level 2
-  log_prob <- log_prob + sum(dnorm(d, 0, sigma_d, log = TRUE))
-  
-  # Level 1 (Likelihood)
-  mu_obs <- beta + s[data_stan$ii_obs] + d[cbind(data_stan$ii_obs, data_stan$jj_obs)]
-  log_prob <- log_prob + sum(dnorm(data_stan$y_obs, mu_obs, sigma_epsilon, log = TRUE))
-  
-  return(log_prob)
-}
-
-# 3. 定義邊界 (這次的名稱來自 no_lp 的樣本)
-param_names <- colnames(posterior_samples_no_lp)
-lb <- setNames(rep(-Inf, length(param_names)), param_names)
-ub <- setNames(rep(Inf, length(param_names)), param_names)
-sigma_cols <- param_names[startsWith(param_names, "sigma_")]
-lb[sigma_cols] <- 0
-
-# 4. 執行 bridge_sampler
-mod_bs_final <- bridge_sampler(
-  samples = as.matrix(posterior_samples_no_lp),
-  log_posterior = log_posterior_R,
-  lb = lb,
-  ub = ub,
-  silent = FALSE
-)
-
-print("--- bridge_sampler 執行成功！ ---")
-print(mod_bs_final)
-```
-
-Bridge sampling estimate of the log marginal likelihood: -34994.45
-Estimate obtained in 1001 iteration(s) via method "normal".
-
- -34995.09
-
-
-
-
-
-
-
-
-Rstan
-
-```{r}
-library(rstan)
-
-a <- stan(
-  file = "stan/exam_3llmm_RIsRIdHOdERmHOm.stan",  # 您的 Stan 檔案路徑
-  data = data_stan,          # 準備好的數據
-  chains = 4,                 # MCMC 鏈的數量
-  warmup = 4000,              # 預熱迭代次數
-  iter = 8000,                # 總迭代次數 (warmup + sampling)
-  cores = 4,                  # 使用的核心數
-  seed = 20250814             # 設定隨機種子以確保結果可重現
-)
-
-```
-
-```{r}
-debug(bridge_sampler)
-b <- bridge_sampler(a, silent = TRUE)
-b
-```
-
-Bridge sampling estimate of the log marginal likelihood: -34994.91 -35001.79
-Estimate obtained in 55 iteration(s) via method "normal".
-
-## JAGS
-
-```{jags}
-#| label: jags-exam_3llmm_RIsRIdHEdARmERmHEm
-#| output.var: lmm-full
-#| eval: false
-#| filename: jags/exam_3llmm_RIsRIdHEdARmERmHEm.stan
-
-{{< include jags/exam_3llmm_RIsRIdHEdARmERmHEm.stan >}}
-
-```
-```{r}
-#| label: jags-setting
-file_name_jags <- str_glue("jags/{model_name}.jag")
-output_dir_jags = str_glue("jags/draws/{model_name}")
-
-unlink(output_dir_jags, recursive = TRUE)
-dir.create(output_dir_jags, recursive = TRUE)
-
-y <- array(NA, dim = c(N, D, M))
-
-for (i in 1:N) {
-  for (j in 1:D) {
-    for (k in 1:M) {
-      y[i, j, k] <- data$Neg_aff[data$Participant == i & data$Day == j & data$Moment == k]
-    }
-  }
-}
-
-data_jags <- list(
-  N = N, 
-  D = D, 
-  M = M,
-  y = y
-) 
-
-pars_jags <- c("beta", "s", "d", 
-               "sigma_s", "sigma_d", "sigma_epsilon",
-               "eta_m", "phi_m", "tau2_m")
-
-
-
-```
-
-```{r}
-#| label: jags-fit
-
-mod_jags <- jags(
-  data = data_jags,
-  #inits = inits_func1,
-  parameters.to.save = pars_jags,
-  model.file = file_name_jags,
-  n.chains = 4,
-  n.adapt = 1000,
-  n.burnin = 6000,
-  n.iter = 8000,
-  n.thin = 15,
-  parallel = TRUE
-)
-
-write_rds(lmm_1, file = "jags/exam_3l-lmm_ZRIdHdARmHm_jags.rds")
-```
-
-:::
-
-# Model comparison?
-
-
-
-
-```{r}
-file <- file.path(cmdstan_path(), "examples", "bernoulli", "bernoulli.stan")
-mod <- cmdstan_model(file, force_recompile = T)
-
-d <- list(N = 10, y = c(0,1,0,0,0,0,0,0,0,1))
-
-fit <- mod$sample(
-  data = d,
-  seed = 123,
-  chains = 4,
-  parallel_chains = 4,
-  refresh = 500
-)
-
-
-```
-
-Bridge sampling estimate of the log marginal likelihood: -6.20567
-Estimate obtained in 4 iteration(s) via method "normal".
-
-```{r}
-# Log marginal likelihood
-lml <- bridge_sampler(fit)
-lml
-lml2 <- my_bridge_sampler(fit)
-lml2
-```
-
-Bridge sampling estimate of the log marginal likelihood: -6.20307
-Estimate obtained in 5 iteration(s) via method "normal".
-Bridge sampling estimate of the log marginal likelihood: -6.20299
-Estimate obtained in 5 iteration(s) via method "normal".
-
-
-```{r}
-library(rstan)
-
-
-fit_rstan <- stan(
-  file = file,  # 您的 Stan 檔案路徑
-  data = d,          # 準備好的數據
-  chains = 4,                 # MCMC 鏈的數量
-  warmup = 500,              # 預熱迭代次數
-  iter = 1500,                # 總迭代次數 (warmup + sampling)
-  cores = 4,                  # 使用的核心數
-  seed = 123             # 設定隨機種子以確保結果可重現
-)
-```
-
-```{r}
-lml_rstan <- bridge_sampler(fit_rstan, silent = TRUE)
-lml_rstan
-lml2_rstan <- my_bridge_sampler2(fit_rstan, silent = TRUE)
-lml2_rstan
-```
-
-Warning message:
-effective sample size cannot be calculated, has been replaced by number of samples. 
-Bridge sampling estimate of the log marginal likelihood: -6.20464
-Estimate obtained in 5 iteration(s) via method "normal".
-
-
-```{r}
-
-my_bridge_sampler2 <- function(fit, ...) {
-
-  ex <- rstan::extract(fit_rstan, permuted = FALSE)
-  skeleton <- bridgesampling:::.create_skeleton(fit_rstan@sim$pars_oi,
-                               fit_rstan@par_dims[fit_rstan@sim$pars_oi])
-  upars <- apply(ex, 1:2, FUN = function(theta) {
-    rstan::unconstrain_pars(fit_rstan, bridgesampling:::.rstan_relist(theta, skeleton))
-  })
-  if (length(dim(upars)) == 2) { # for one parameter models
-    dim(upars) <- c(1, dim(upars))
-  }
-  
-  # usamples <- as.matrix(fit)
-  # usamples <- usamples[, colnames(usamples) != "lp__", drop = FALSE]
-  log_posterior_stan <- function(pars, ...) {
-    rstan::log_prob(fit, upars = pars)
-  }
-  param_names <- colnames(usamples)
-  ub <- 1
-  lb <- 0
-  #ub <- setNames(rep(Inf, length(param_names)), param_names)
-  #lb <- setNames(rep(-Inf, length(param_names)), param_names)
-  # sigma_cols <- param_names[startsWith(param_names, "sigma")]
-  # lb[sigma_cols] <- 0
-
-  bs <- bridge_sampler(
-    samples = usamples,
-    log_posterior = log_posterior_stan,
-    lb = lb,
-    ub = ub,
-    silent = TRUE
-  )
-  return(bs)
-}
-```
-
-# Results
-
-# Discussion
+# Discussion?
 
 

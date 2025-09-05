@@ -43,6 +43,8 @@ model name / file name pattern: exam_[model]_[spcification]<.[extension]>
 
 ### Possible model
 
+MCMC sampling with chain = 4, burnin = 16000, iter = 16000, thin = 4.
+
  |Model|RIs|RId|HOd|HEd|ARd|ARm|ERm|HOm|HEm|Results                          |
 |-----|---|---|---|---|---|---|---|---|---|----------------------------------|
 |1    | + | + | + | - | - | - | + | + | - | [exam_3llmm_RIsRIdHOdERmHOm](results/exam_3llmm_RIsRIdHOdERmHOm_nonc_result.html)             |
@@ -61,9 +63,24 @@ Additional runs:
 - If I used the lmm expression for AR(1) process instead of the ssm expression
   - Model 3_m: [exam_3llmm_RIsRIdHOdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_result.html)
   - Model (3+4)_m: [exam_3llmm_RIsRIdHOdARdARmERmHOm_m](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_result.html)
-- Longer version of MCMC (chain = 4, burnin = 32000, iter = 32000, thin = 4)
+- Longer version of MCMC (chain = 4, burnin = 32000, iter = 32000, thin = 8)
   - Model 3_m_long: [exam_3llmm_RIsRIdHOdARmERmHOm_m_long](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_m_long_result.html)
   - Model (3+4)_m_long: [exam_3llmm_RIsRIdHOdARdARmERmHOm_m_long](results/exam_3llmm_RIsRIdHOdARdARmERmHOm_nonc_m_long_result.html)
 - Sophie's suggestion: fix the range of beta and center parameterized for the day random effect.
   - Model 3_fix: [exam_3llmm_RIsRIdHOdARmERmHOm_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_centd_result.html)
   - Model 3_fix (non-centerized other parameters) [exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd](results/exam_3llmm_RIsRIdHOdARmERmHOm_nonc_centd_result.html)
+- Two day variances
+  - Day 3 has a speicific variance, other days share another variance.
+    - Noncentered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver1_result.html)
+    - Centered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_ver1_result.html)
+    - Centered parameterization with phi_beta: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_phibeta_ver1_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_phibeta_ver1_result.html)
+  - Days 3 and 4 have a speicific variance, other days share another variance.
+    - Noncentered parameterization: Noncentered parameterization: [exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver2_result](results/exam_3llmm_RIsRIdHEd2ARdARmERmHOm_m_nonc_ver2_result.html)
+
+
+## Primary Restults
+
+The primary results are based on Model 3+4: `exam_3llmm_RIsRIdHOdARdARmERmHOm.stan`. The reliaiblity analysis please check:
+
+- (Not fully finished yet) [exam_study_analysis](results/exam_study_analysis.html)
+
